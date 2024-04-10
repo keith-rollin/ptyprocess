@@ -14,6 +14,7 @@ import time
 
 # Constants
 from pty import CHILD, STDIN_FILENO
+from typing import Any, Callable, Mapping
 
 
 class PtyProcessError(Exception):
@@ -31,14 +32,14 @@ else:
     from pty import fork as pty_fork
 
 
-def _byte(i):
+def _byte(i: int) -> bytes:
     return bytes([i])
 
 
 _EOF, _INTR = None, None
 
 
-def _make_eof_intr():
+def _make_eof_intr() -> None:
     """Set constants _EOF and _INTR.
 
     This avoids doing potentially costly operations on module load.
@@ -85,7 +86,7 @@ def _make_eof_intr():
 # to do this from the child before we exec()
 
 
-def _setecho(fd, state):
+def _setecho(fd: int, state: bool) -> None:
     errmsg = "setecho() may not be called on this platform (it may still be possible to enable/disable echo when spawning the child process)"
 
     try:
@@ -110,7 +111,7 @@ def _setecho(fd, state):
         raise
 
 
-def _setwinsize(fd, rows, cols):
+def _setwinsize(fd: int, rows: int, cols: int) -> None:
     # Some very old platforms have a bug that causes the value for
     # termios.TIOCSWINSZ to be truncated. There was a hack here to work
     # around this, but it caused problems with newer platforms so has been
@@ -141,7 +142,7 @@ class PtyProcess:
     env = None
     launch_dir = None
 
-    def __init__(self, pid, fd):
+    def __init__(self, pid: int, fd: int):
         _make_eof_intr()  # Ensure _EOF and _INTR are calculated
         self.pid = pid
         self.fd = fd
@@ -166,13 +167,13 @@ class PtyProcess:
     @classmethod
     def spawn(
         cls,
-        argv,
-        cwd=None,
-        env=None,
-        echo=True,
-        preexec_fn=None,
-        dimensions=(24, 80),
-        pass_fds=(),
+        argv: list,
+        cwd: str | None = None,
+        env: Mapping | None = None,
+        echo: bool = True,
+        preexec_fn: Callable | None = None,
+        dimensions: tuple[int, int] = (24, 80),
+        pass_fds: tuple[int, ...] = (),
     ):
         """Start the given command in a child process in a pseudo terminal.
 
@@ -319,7 +320,7 @@ class PtyProcess:
 
         return inst
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         clsname = type(self).__name__
         if self.argv is not None:
             args = [repr(self.argv)]
@@ -333,7 +334,7 @@ class PtyProcess:
         else:
             return "{}(pid={}, fd={})".format(clsname, self.pid, self.fd)
 
-    def __del__(self):
+    def __del__(self) -> None:
         """This makes sure that no system resources are left open. Python only
         garbage collects Python objects. OS file descriptors are not Python
         objects, so they must be handled explicitly. If the child file
@@ -350,11 +351,11 @@ class PtyProcess:
             except Exception:
                 pass
 
-    def fileno(self):
+    def fileno(self) -> int:
         """This returns the file descriptor of the pty for the child."""
         return self.fd
 
-    def close(self, force=True):
+    def close(self, force: bool = True) -> None:
         """This closes the connection with the child application. Note that
         calling close() more than once is valid. This emulates standard Python
         behavior with files. Set force to True if you want to make sure that
@@ -372,13 +373,13 @@ class PtyProcess:
             self.closed = True
             # self.pid = None
 
-    def flush(self):
+    def flush(self) -> None:
         """This does nothing. It is here to support the interface for a
         File-like object."""
 
         pass
 
-    def isatty(self):
+    def isatty(self) -> bool:
         """This returns True if the file descriptor is open and connected to a
         tty(-like) device, else False.
 
@@ -389,7 +390,7 @@ class PtyProcess:
 
         return os.isatty(self.fd)
 
-    def waitnoecho(self, timeout=None):
+    def waitnoecho(self, timeout: int | float | None = None) -> bool:
         """Wait until the terminal ECHO flag is set False.
 
         This returns True if the echo mode is off, or False if echo was not
@@ -421,7 +422,7 @@ class PtyProcess:
                     return True
                 time.sleep(0.1)
 
-    def getecho(self):
+    def getecho(self) -> bool:
         """Returns True if terminal echo is on, or False if echo is off.
 
         Child applications that are expecting you to enter a password often
@@ -441,7 +442,7 @@ class PtyProcess:
         self.echo = bool(attr[3] & termios.ECHO)
         return self.echo
 
-    def setecho(self, state):
+    def setecho(self, state: bool) -> None:
         """Enable or disable terminal echo.
 
         Anything the child sent before the echo will be lost, so you should be
@@ -478,7 +479,7 @@ class PtyProcess:
 
         self.echo = state
 
-    def read(self, size=1024):
+    def read(self, size: int = 1024) -> str | bytes:
         """Read and return at most ``size`` bytes from the pty.
 
         Can block if there is nothing to read. Raises :exc:`EOFError` if the
@@ -505,7 +506,7 @@ class PtyProcess:
 
         return s
 
-    def readline(self):
+    def readline(self) -> str | bytes:
         """Read one line from the pseudoterminal, and return it as unicode.
 
         Can block if there is nothing to read. Raises :exc:`EOFError` if the
@@ -526,20 +527,23 @@ class PtyProcess:
 
         return s
 
-    def _writeb(self, b, flush=True):
+    def _writeb(self, b: Any, flush: bool = True) -> int:
+        # 'b' is defined as 'Any'. I wanted 'str | bytes' but my linter complains that
+        # those are incompatible with ReadableBuffer, which is what fileobj.write()
+        # apparently wants. And that doesn't seem to be a standard type.
         n = self.fileobj.write(b)
         if flush:
             self.fileobj.flush()
         return n
 
-    def write(self, s, flush=True):
+    def write(self, s: str | bytes, flush=True) -> int:
         """Write bytes to the pseudoterminal.
 
         Returns the number of bytes written.
         """
         return self._writeb(s, flush=flush)
 
-    def sendcontrol(self, char):
+    def sendcontrol(self, char: str) -> tuple[int, bytes]:
         """Helper method for sending control characters to the terminal.
 
         For example, to send Ctrl-G (ASCII 7, bell, ``'\\a'``)::
@@ -574,7 +578,7 @@ class PtyProcess:
         byte = _byte(d[char])
         return self._writeb(byte), byte
 
-    def sendeof(self):
+    def sendeof(self) -> tuple[int, bytes | None]:
         """Sends an EOF (typically Ctrl-D) through the terminal.
 
         This sends a character which causes
@@ -588,7 +592,7 @@ class PtyProcess:
         """
         return self._writeb(_EOF), _EOF
 
-    def sendintr(self):
+    def sendintr(self) -> tuple[int, bytes | None]:
         """Send an interrupt character (typically Ctrl-C) through the terminal.
 
         This will normally trigger the kernel to send SIGINT to the current
@@ -601,12 +605,12 @@ class PtyProcess:
         """
         return self._writeb(_INTR), _INTR
 
-    def eof(self):
+    def eof(self) -> bool:
         """This returns True if the EOF exception was ever raised."""
 
         return self.flag_eof
 
-    def terminate(self, force=False):
+    def terminate(self, force: bool = False) -> bool:
         """This forces a child process to terminate. It starts nicely with
         SIGHUP and SIGINT. If "force" is True then moves onto SIGKILL. This
         returns True if the child was terminated. This returns False if the
@@ -646,7 +650,7 @@ class PtyProcess:
             else:
                 return False
 
-    def wait(self):
+    def wait(self) -> int | None:
         """This waits until the child exits. This is a blocking call. This will
         not read any data from the child, so this will block forever if the
         child has unread output and has terminated. In other words, the child
@@ -677,7 +681,7 @@ class PtyProcess:
             )
         return self.exitstatus
 
-    def isalive(self):
+    def isalive(self) -> bool:
         """This tests if the child process is running or not. This is
         non-blocking. If the child was terminated then this will read the
         exitstatus or signalstatus of the child. This returns True if the child
@@ -760,7 +764,7 @@ class PtyProcess:
             )
         return False
 
-    def kill(self, sig):
+    def kill(self, sig: int) -> None:
         """Send the given signal to the child application.
 
         In keeping with UNIX tradition it has a misleading name. It does not
@@ -772,14 +776,14 @@ class PtyProcess:
         if self.isalive():
             os.kill(self.pid, sig)
 
-    def getwinsize(self):
+    def getwinsize(self) -> tuple[int, int]:
         """Return the window size of the pseudoterminal as a tuple (rows, cols)."""
         TIOCGWINSZ = getattr(termios, "TIOCGWINSZ", 1074295912)
         s = struct.pack("HHHH", 0, 0, 0, 0)
         x = fcntl.ioctl(self.fd, TIOCGWINSZ, s)
         return struct.unpack("HHHH", x)[0:2]
 
-    def setwinsize(self, rows, cols):
+    def setwinsize(self, rows: int, cols: int) -> None:
         """Set the terminal window size of the child tty.
 
         This will cause a SIGWINCH signal to be sent to the child. This does not
@@ -803,7 +807,7 @@ class PtyProcessUnicode(PtyProcess):
         self.codec_errors = codec_errors
         self.decoder = codecs.getincrementaldecoder(encoding)(errors=codec_errors)
 
-    def read(self, size=1024):
+    def read(self, size: int = 1024) -> str | bytes:
         """Read at most ``size`` bytes from the pty, return them as unicode.
 
         Can block if there is nothing to read. Raises :exc:`EOFError` if the
@@ -812,21 +816,24 @@ class PtyProcessUnicode(PtyProcess):
         The size argument still refers to bytes, not unicode code points.
         """
         b = super(PtyProcessUnicode, self).read(size)
+        assert isinstance(b, bytes)
         return self.decoder.decode(b, final=False)
 
-    def readline(self):
+    def readline(self) -> str | bytes:
         """Read one line from the pseudoterminal, and return it as unicode.
 
         Can block if there is nothing to read. Raises :exc:`EOFError` if the
         terminal was closed.
         """
         b = super(PtyProcessUnicode, self).readline()
+        assert isinstance(b, bytes)
         return self.decoder.decode(b, final=False)
 
-    def write(self, s):
+    def write(self, s: str | bytes, flush: bool = True) -> int:
         """Write the unicode string ``s`` to the pseudoterminal.
 
         Returns the number of bytes written.
         """
+        assert isinstance(s, str)
         b = s.encode(self.encoding)
-        return super(PtyProcessUnicode, self).write(b)
+        return super(PtyProcessUnicode, self).write(b, flush)
