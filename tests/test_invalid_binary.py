@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-'''
+"""
 PEXPECT LICENSE
 
     This license is approved by the OSI and FSF as GPL-compatible.
@@ -17,32 +17,34 @@ PEXPECT LICENSE
     ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
     OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-'''
-import time
-import unittest
-from ptyprocess import PtyProcess, PtyProcessUnicode
+"""
+
 import errno
 import os
 import stat
 import tempfile
+import time
+import unittest
+
+from ptyprocess import PtyProcess, PtyProcessUnicode
+
 
 class InvalidBinaryChars(unittest.TestCase):
-
     def test_invalid_binary(self):
-        '''This tests that we correctly handle the case where we attempt to
-           spawn a child process but the exec call fails'''
+        """This tests that we correctly handle the case where we attempt to
+        spawn a child process but the exec call fails"""
 
         # Create a file that should fail the exec call
         dirpath = tempfile.mkdtemp()
         fullpath = os.path.join(dirpath, "test")
 
-        with open(fullpath, 'wb') as f:
+        with open(fullpath, "wb") as f:
             # Add some constant so it will never be executable
             #  - Not 0x54AD (Windows PE)
             #  - Not 0x7FEF (ELF)
             #  - Not 0410 or 0413 (a.out)
             #  - Not 0x2321 (script)
-            file_start = b'\x00\x00'
+            file_start = b"\x00\x00"
             file_data = file_start + os.urandom(1022)
             f.write(file_data)
 
@@ -67,5 +69,6 @@ class InvalidBinaryChars(unittest.TestCase):
             os.unlink(fullpath)
             os.rmdir(dirpath)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

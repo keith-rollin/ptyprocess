@@ -1,18 +1,20 @@
 import fcntl
 import os
-import time
 import select
 import tempfile
+import time
 import unittest
-from ptyprocess.ptyprocess import which
+
 from ptyprocess import PtyProcess, PtyProcessUnicode
+from ptyprocess.ptyprocess import which
+
 
 class PtyTestCase(unittest.TestCase):
     def setUp(self):
-        self.cmd = u'echo $ENV_KEY; exit 0\n'
+        self.cmd = "echo $ENV_KEY; exit 0\n"
         self.env = os.environ.copy()
-        self.env_key = u'ENV_KEY'
-        self.env_value = u'env_value'
+        self.env_key = "ENV_KEY"
+        self.env_value = "env_value"
         self.env[self.env_key] = self.env_value
 
     def _canread(self, fd, timeout=1):
@@ -20,7 +22,7 @@ class PtyTestCase(unittest.TestCase):
 
     def _spawn_sh(self, ptyp, cmd, outp, env_value):
         # given,
-        p = ptyp.spawn(['sh'], env=self.env)
+        p = ptyp.spawn(["sh"], env=self.env)
         p.write(cmd)
 
         # exercise,
@@ -39,30 +41,29 @@ class PtyTestCase(unittest.TestCase):
         # exit successfully (exit 0)
         assert p.wait() == 0
 
-
     def test_spawn_sh(self):
-        outp = b''
-        self._spawn_sh(PtyProcess, self.cmd.encode('ascii'),
-                       outp, self.env_value.encode('ascii'))
+        outp = b""
+        self._spawn_sh(
+            PtyProcess, self.cmd.encode("ascii"), outp, self.env_value.encode("ascii")
+        )
 
     def test_spawn_sh_unicode(self):
-        outp = u''
-        self._spawn_sh(PtyProcessUnicode, self.cmd,
-                       outp, self.env_value)
+        outp = ""
+        self._spawn_sh(PtyProcessUnicode, self.cmd, outp, self.env_value)
 
     def test_quick_spawn(self):
         """Spawn a very short-lived process."""
         # so far only reproducible on Solaris 11, spawning a process
         # that exits very quickly raised an exception at 'inst.setwinsize',
         # because the pty file descriptor was quickly lost after exec().
-        PtyProcess.spawn(['true'])
+        PtyProcess.spawn(["true"])
 
     def _interactive_repl_unicode(self, echo):
         """Test Call and response with echo ON/OFF."""
         # given,
-        bc = PtyProcessUnicode.spawn(['bc'], echo=echo)
-        given_input = u'2+2+2+2+2+2+2+2+2+2+2+2+2+2+2+2+2+2+2+2\n'
-        expected_output = u'40'
+        bc = PtyProcessUnicode.spawn(["bc"], echo=echo)
+        given_input = "2+2+2+2+2+2+2+2+2+2+2+2+2+2+2+2+2+2+2+2\n"
+        expected_output = "40"
 
         # gnu-bc will display a long FSF banner on startup,
         # whereas bsd-bc (on FreeBSD, Solaris) display no
@@ -70,11 +71,11 @@ class PtyTestCase(unittest.TestCase):
         # current prompt, read until the response of '2^16' is found.
         time.sleep(1)
 
-        bc.write(u'2^16\n')
-        outp = u''
+        bc.write("2^16\n")
+        outp = ""
         while self._canread(bc.fd):
             outp += bc.read()
-        assert u'65536' in outp
+        assert "65536" in outp
 
         # exercise,
         bc.write(given_input)
@@ -106,11 +107,11 @@ class PtyTestCase(unittest.TestCase):
         # validate exit status,
         assert bc.wait() == 0
 
-    @unittest.skipIf(which('bc') is None, "bc(1) not found on this server.")
+    @unittest.skipIf(which("bc") is None, "bc(1) not found on this server.")
     def test_interactive_repl_unicode_noecho(self):
         self._interactive_repl_unicode(echo=False)
 
-    @unittest.skipIf(which('bc') is None, "bc(1) not found on this server.")
+    @unittest.skipIf(which("bc") is None, "bc(1) not found on this server.")
     def test_interactive_repl_unicode_echo(self):
         self._interactive_repl_unicode(echo=True)
 
@@ -120,31 +121,31 @@ class PtyTestCase(unittest.TestCase):
             temp_file_name = temp_file.name
 
             # Temporary files are CLOEXEC by default
-            fcntl.fcntl(temp_file_fd,
-                        fcntl.F_SETFD,
-                        fcntl.fcntl(temp_file_fd, fcntl.F_GETFD) &
-                        ~fcntl.FD_CLOEXEC)
+            fcntl.fcntl(
+                temp_file_fd,
+                fcntl.F_SETFD,
+                fcntl.fcntl(temp_file_fd, fcntl.F_GETFD) & ~fcntl.FD_CLOEXEC,
+            )
 
             # You can write with pass_fds
-            p = PtyProcess.spawn(['bash',
-                                  '-c',
-                                  'printf hello >&{}'.format(temp_file_fd)],
-                                 echo=True,
-                                 pass_fds=(temp_file_fd,))
+            p = PtyProcess.spawn(
+                ["bash", "-c", "printf hello >&{}".format(temp_file_fd)],
+                echo=True,
+                pass_fds=(temp_file_fd,),
+            )
             p.wait()
             assert p.status == 0
 
-            with open(temp_file_name, 'r') as temp_file_r:
-                assert temp_file_r.read() == 'hello'
+            with open(temp_file_name, "r") as temp_file_r:
+                assert temp_file_r.read() == "hello"
 
             # You can't write without pass_fds
-            p = PtyProcess.spawn(['bash',
-                                  '-c',
-                                  'printf bye >&{}'.format(temp_file_fd)],
-                                 echo=True)
-            p.read() # Read error off child to allow it to terminate nicely
+            p = PtyProcess.spawn(
+                ["bash", "-c", "printf bye >&{}".format(temp_file_fd)], echo=True
+            )
+            p.read()  # Read error off child to allow it to terminate nicely
             p.wait()
             assert p.status != 0
 
-            with open(temp_file_name, 'r') as temp_file_r:
-                assert temp_file_r.read() == 'hello'
+            with open(temp_file_name, "r") as temp_file_r:
+                assert temp_file_r.read() == "hello"
