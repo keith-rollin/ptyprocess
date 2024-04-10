@@ -12,7 +12,6 @@ import struct
 import sys
 import termios
 import time
-
 # Constants
 from pty import CHILD, STDIN_FILENO
 
@@ -419,14 +418,18 @@ class PtyProcess(object):
 
         if timeout is not None:
             end_time = time.time() + timeout
-        while True:
-            if not self.getecho():
-                return True
-            if timeout < 0 and timeout is not None:
-                return False
-            if timeout is not None:
+            while True:
+                if not self.getecho():
+                    return True
+                if timeout < 0:
+                    return False
                 timeout = end_time - time.time()
-            time.sleep(0.1)
+                time.sleep(0.1)
+        else:
+            while True:
+                if not self.getecho():
+                    return True
+                time.sleep(0.1)
 
     def getecho(self):
         """Returns True if terminal echo is on, or False if echo is off.
