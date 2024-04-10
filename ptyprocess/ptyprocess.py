@@ -333,16 +333,6 @@ class PtyProcess:
         else:
             return "{}(pid={}, fd={})".format(clsname, self.pid, self.fd)
 
-    @staticmethod
-    def _coerce_send_string(s):
-        if not isinstance(s, bytes):
-            return s.encode("utf-8")
-        return s
-
-    @staticmethod
-    def _coerce_read_string(s):
-        return s
-
     def __del__(self):
         """This makes sure that no system resources are left open. Python only
         garbage collects Python objects. OS file descriptors are not Python
