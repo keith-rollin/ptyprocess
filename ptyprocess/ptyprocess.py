@@ -1,3 +1,4 @@
+import builtins  # Python 3
 import codecs
 import errno
 import fcntl
@@ -11,12 +12,6 @@ import struct
 import sys
 import termios
 import time
-
-try:
-    import builtins  # Python 3
-except ImportError:
-    import __builtin__ as builtins  # Python 2
-
 # Constants
 from pty import CHILD, STDIN_FILENO
 
@@ -36,22 +31,9 @@ if _is_solaris:
 else:
     use_native_pty_fork = True
 
-PY3 = sys.version_info[0] >= 3
 
-if PY3:
-
-    def _byte(i):
-        return bytes([i])
-else:
-
-    def _byte(i):
-        return chr(i)
-
-    class FileNotFoundError(OSError):
-        pass
-
-    class TimeoutError(OSError):
-        pass
+def _byte(i):
+    return bytes([i])
 
 
 _EOF, _INTR = None, None
@@ -147,21 +129,16 @@ class PtyProcess(object):
     """
 
     string_type = bytes
-    if PY3:
-        linesep = os.linesep.encode("ascii")
-        crlf = "\r\n".encode("ascii")
+    linesep = os.linesep.encode("ascii")
+    crlf = "\r\n".encode("ascii")
 
-        @staticmethod
-        def write_to_stdout(b):
-            try:
-                return sys.stdout.buffer.write(b)
-            except AttributeError:
-                # If stdout has been replaced, it may not have .buffer
-                return sys.stdout.write(b.decode("ascii", "replace"))
-    else:
-        linesep = os.linesep
-        crlf = "\r\n"
-        write_to_stdout = sys.stdout.write
+    @staticmethod
+    def write_to_stdout(b):
+        try:
+            return sys.stdout.buffer.write(b)
+        except AttributeError:
+            # If stdout has been replaced, it may not have .buffer
+            return sys.stdout.write(b.decode("ascii", "replace"))
 
     encoding = None
 
@@ -301,8 +278,7 @@ class PtyProcess(object):
                 except Exception as e:
                     ename = type(e).__name__
                     tosend = "{}:0:{}".format(ename, str(e))
-                    if PY3:
-                        tosend = tosend.encode("utf-8")
+                    tosend = tosend.encode("utf-8")
 
                     os.write(exec_err_pipe_write, tosend)
                     os.close(exec_err_pipe_write)
@@ -317,8 +293,7 @@ class PtyProcess(object):
                 # [issue #119] 5. If exec fails, the child writes the error
                 # code back to the parent using the pipe, then exits.
                 tosend = "OSError:{}:{}".format(err.errno, str(err))
-                if PY3:
-                    tosend = tosend.encode("utf-8")
+                tosend = tosend.encode("utf-8")
                 os.write(exec_err_pipe_write, tosend)
                 os.close(exec_err_pipe_write)
                 os._exit(os.EX_OSERR)
@@ -852,10 +827,7 @@ class PtyProcessUnicode(PtyProcess):
     methods return unicode, and its :meth:`write` accepts unicode.
     """
 
-    if PY3:
-        string_type = str
-    else:
-        string_type = unicode  # analysis:ignore
+    string_type = str
 
     def __init__(self, pid, fd, encoding="utf-8", codec_errors="strict"):
         super(PtyProcessUnicode, self).__init__(pid, fd)
