@@ -4,6 +4,7 @@ import errno
 import fcntl
 import io
 import os
+import pickle
 import resource
 import shutil
 import signal
@@ -265,13 +266,9 @@ class PtyProcess(object):
             if preexec_fn is not None:
                 try:
                     preexec_fn()
-                except Exception as e:
-                    ename = type(e).__name__
-                    tosend = "{}:0:{}".format(ename, str(e))
-                    tosend = tosend.encode("utf-8")
-
-                    os.write(exec_err_pipe_write, tosend)
-                    os.close(exec_err_pipe_write)
+                except Exception as err:
+                    with os.fdopen(exec_err_pipe_write, "wb") as f:
+                        pickle.dump(err, f)
                     os._exit(1)
 
             try:
@@ -282,10 +279,8 @@ class PtyProcess(object):
             except OSError as err:
                 # [issue #119] 5. If exec fails, the child writes the error
                 # code back to the parent using the pipe, then exits.
-                tosend = "OSError:{}:{}".format(err.errno, str(err))
-                tosend = tosend.encode("utf-8")
-                os.write(exec_err_pipe_write, tosend)
-                os.close(exec_err_pipe_write)
+                with os.fdopen(exec_err_pipe_write, "wb") as f:
+                    pickle.dump(err, f)
                 os._exit(os.EX_OSERR)
 
         # Parent
@@ -299,31 +294,22 @@ class PtyProcess(object):
             inst.launch_dir = cwd
 
         # [issue #119] 2. After forking, the parent closes the writing end
-        # of the pipe and reads from the reading end.
+        # of the pipe.
         os.close(exec_err_pipe_write)
-        exec_err_data = os.read(exec_err_pipe_read, 4096)
-        os.close(exec_err_pipe_read)
 
-        # [issue #119] 6. The parent reads eof (a zero-length read) if the
+        # [issue #119] 6. The parent raises EOFError if the
         # child successfully performed exec, since close-on-exec made
         # successful exec close the writing end of the pipe. Or, if exec
         # failed, the parent reads the error code and can proceed
         # accordingly. Either way, the parent blocks until the child calls
         # exec.
-        if len(exec_err_data) != 0:
-            try:
-                errclass, errno_s, errmsg = exec_err_data.split(b":", 2)
-                exctype = getattr(builtins, errclass.decode("ascii"), Exception)
-
-                exception = exctype(errmsg.decode("utf-8", "replace"))
-                if exctype is OSError:
-                    exception.errno = int(errno_s)
-            except:
-                raise Exception(
-                    "Subprocess failed, got bad error data: %r" % exec_err_data
-                )
-            else:
-                raise exception
+        try:
+            with os.fdopen(exec_err_pipe_read, "rb") as f:
+                err = pickle.load(f)
+            raise err
+        except EOFError:
+            # The parent exited without writing anything, so no bad news.
+            pass
 
         try:
             inst.setwinsize(*dimensions)
