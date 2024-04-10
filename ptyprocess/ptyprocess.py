@@ -121,7 +121,7 @@ def _setwinsize(fd, rows, cols):
     fcntl.ioctl(fd, TIOCSWINSZ, s)
 
 
-class PtyProcess(object):
+class PtyProcess:
     """This class represents a process running in a pseudoterminal.
 
     The main constructor is the :meth:`spawn` classmethod.
