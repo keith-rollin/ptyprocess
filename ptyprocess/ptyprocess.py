@@ -1,4 +1,3 @@
-import builtins  # Python 3
 import codecs
 import errno
 import fcntl
