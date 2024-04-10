@@ -119,14 +119,6 @@ class PtyProcess:
     The main constructor is the :meth:`spawn` classmethod.
     """
 
-    @staticmethod
-    def write_to_stdout(b):
-        try:
-            return sys.stdout.buffer.write(b)
-        except AttributeError:
-            # If stdout has been replaced, it may not have .buffer
-            return sys.stdout.write(b.decode("ascii", "replace"))
-
     encoding = None
 
     argv = None
