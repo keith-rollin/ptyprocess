@@ -4,7 +4,6 @@ import errno
 import fcntl
 import io
 import os
-import pty
 import resource
 import shutil
 import signal
@@ -26,10 +25,9 @@ _platform = sys.platform.lower()
 _is_solaris = _platform.startswith("solaris") or _platform.startswith("sunos")
 
 if _is_solaris:
-    use_native_pty_fork = False
-    from . import _fork_pty
+    from ._fork_pty import pty_fork
 else:
-    use_native_pty_fork = True
+    from pty import fork as pty_fork
 
 
 def _byte(i):
@@ -223,11 +221,7 @@ class PtyProcess(object):
         # [issue #119] 1. Before forking, open a pipe in the parent process.
         exec_err_pipe_read, exec_err_pipe_write = os.pipe()
 
-        if use_native_pty_fork:
-            pid, fd = pty.fork()
-        else:
-            # Use internal fork_pty, for Solaris
-            pid, fd = _fork_pty.fork_pty()
+        pid, fd = pty_fork()
 
         # Some platforms must call setwinsize() and setecho() from the
         # child process, and others from the master process. We do both,

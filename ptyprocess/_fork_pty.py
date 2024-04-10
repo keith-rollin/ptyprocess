@@ -7,7 +7,7 @@ from pty import CHILD, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO
 from ptyprocess import PtyProcessError
 
 
-def fork_pty():
+def pty_fork():
     """This implements a substitute for the forkpty system call. This
     should be more portable than the pty.fork() function. Specifically,
     this should work on Solaris.
