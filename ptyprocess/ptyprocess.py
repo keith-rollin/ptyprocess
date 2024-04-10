@@ -12,6 +12,7 @@ import struct
 import sys
 import termios
 import time
+
 # Constants
 from pty import CHILD, STDIN_FILENO
 from typing import Any, Callable, Mapping
@@ -119,15 +120,19 @@ class PtyProcess:
     The main constructor is the :meth:`spawn` classmethod.
     """
 
-    encoding = None
-
-    argv = None
-    env = None
-    launch_dir = None
-
-    def __init__(self, pid: int, fd: int):
+    def __init__(
+        self,
+        pid: int,
+        fd: int,
+        argv: list | None = None,
+        env: Mapping | None = None,
+        cwd: str | None = None,
+    ):
         self.pid = pid
         self.fd = fd
+        self.argv = argv
+        self.env = env
+        self.cwd = cwd
         readf = io.open(fd, "rb", buffering=0)
         writef = io.open(fd, "wb", buffering=0, closefd=False)
         self.fileobj = io.BufferedRWPair(readf, writef)
@@ -156,7 +161,7 @@ class PtyProcess:
         preexec_fn: Callable | None = None,
         dimensions: tuple[int, int] = (24, 80),
         pass_fds: tuple[int, ...] = (),
-    ):
+    ) -> object:
         """Start the given command in a child process in a pseudo terminal.
 
         This does all the fork/exec type of stuff for a pty, and returns an
@@ -267,14 +272,7 @@ class PtyProcess:
                 os._exit(os.EX_OSERR)
 
         # Parent
-        inst = cls(pid, fd)
-
-        # Set some informational attributes
-        inst.argv = argv
-        if env is not None:
-            inst.env = env
-        if cwd is not None:
-            inst.launch_dir = cwd
+        inst = cls(pid, fd, argv, env, cwd)
 
         # [issue #119] 2. After forking, the parent closes the writing end
         # of the pipe.
@@ -308,8 +306,8 @@ class PtyProcess:
             args = [repr(self.argv)]
             if self.env is not None:
                 args.append("env=%r" % self.env)
-            if self.launch_dir is not None:
-                args.append("cwd=%r" % self.launch_dir)
+            if self.cwd is not None:
+                args.append("cwd=%r" % self.cwd)
 
             return "{}.spawn({})".format(clsname, ", ".join(args))
 
@@ -785,11 +783,20 @@ class PtyProcessUnicode(PtyProcess):
     methods return unicode, and its :meth:`write` accepts unicode.
     """
 
-    def __init__(self, pid, fd, encoding="utf-8", codec_errors="strict"):
-        super(PtyProcessUnicode, self).__init__(pid, fd)
-        self.encoding = encoding
-        self.codec_errors = codec_errors
-        self.decoder = codecs.getincrementaldecoder(encoding)(errors=codec_errors)
+    def __init__(
+        self,
+        pid: int,
+        fd: int,
+        argv: list | None = None,
+        env: Mapping | None = None,
+        cwd: str | None = None,
+    ):
+        super().__init__(pid, fd, argv, env, cwd)
+        self.encoding = "utf-8"
+        self.codec_errors = "strict"
+        self.decoder = codecs.getincrementaldecoder(self.encoding)(
+            errors=self.codec_errors
+        )
 
     def read(self, size: int = 1024) -> str | bytes:
         """Read at most ``size`` bytes from the pty, return them as unicode.
