@@ -1,6 +1,7 @@
 import codecs
 import errno
 import fcntl
+import functools
 import io
 import os
 import pickle
@@ -11,7 +12,6 @@ import struct
 import sys
 import termios
 import time
-
 # Constants
 from pty import CHILD, STDIN_FILENO
 from typing import Any, Callable, Mapping
@@ -36,17 +36,9 @@ def _byte(i: int) -> bytes:
     return bytes([i])
 
 
-_EOF, _INTR = None, None
-
-
-def _make_eof_intr() -> None:
-    """Set constants _EOF and _INTR.
-
-    This avoids doing potentially costly operations on module load.
-    """
-    global _EOF, _INTR
-    if (_EOF is not None) and (_INTR is not None):
-        return
+@functools.cache
+def _get_intr_eof() -> tuple[bytes, bytes]:
+    """Return the interrupt and EOF characters for the controlling terminal."""
 
     # inherit EOF and INTR definitions from controlling process.
     try:
@@ -75,11 +67,10 @@ def _make_eof_intr() -> None:
 
             (intr, eof) = (CINTR, CEOF)
         except ImportError:
-            #                         ^C, ^D
+            #             ^C, ^D
             (intr, eof) = (3, 4)
 
-    _INTR = _byte(intr)
-    _EOF = _byte(eof)
+    return _byte(intr), _byte(eof)
 
 
 # setecho and setwinsize are pulled out here because on some platforms, we need
@@ -143,7 +134,6 @@ class PtyProcess:
     launch_dir = None
 
     def __init__(self, pid: int, fd: int):
-        _make_eof_intr()  # Ensure _EOF and _INTR are calculated
         self.pid = pid
         self.fd = fd
         readf = io.open(fd, "rb", buffering=0)
@@ -590,7 +580,8 @@ class PtyProcess:
         It is the responsibility of the caller to ensure the eof is sent at the
         beginning of a line.
         """
-        return self._writeb(_EOF), _EOF
+        eof = _get_intr_eof()[1]
+        return self._writeb(eof), eof
 
     def sendintr(self) -> tuple[int, bytes | None]:
         """Send an interrupt character (typically Ctrl-C) through the terminal.
@@ -603,7 +594,8 @@ class PtyProcess:
         immediate child process in the terminal (which is not necessarily the
         foreground process).
         """
-        return self._writeb(_INTR), _INTR
+        intr = _get_intr_eof()[0]
+        return self._writeb(intr), intr
 
     def eof(self) -> bool:
         """This returns True if the EOF exception was ever raised."""
