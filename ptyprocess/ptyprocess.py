@@ -12,6 +12,7 @@ import struct
 import sys
 import termios
 import time
+
 # Constants
 from pty import CHILD, STDIN_FILENO
 
@@ -357,7 +358,7 @@ class PtyProcess(object):
             try:
                 self.close()
             # which exception, shouldn't we catch explicitly .. ?
-            except:
+            except Exception:
                 pass
 
     def fileno(self):
