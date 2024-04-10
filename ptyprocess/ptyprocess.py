@@ -11,6 +11,7 @@ import struct
 import sys
 import termios
 import time
+
 # Constants
 from pty import CHILD, STDIN_FILENO
 
@@ -663,7 +664,7 @@ class PtyProcess(object):
         technically still alive until its output is read by the parent."""
 
         if self.isalive():
-            pid, status = os.waitpid(self.pid, 0)
+            _, status = os.waitpid(self.pid, 0)
         else:
             return self.exitstatus
         self.exitstatus = os.WEXITSTATUS(status)
