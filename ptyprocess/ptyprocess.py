@@ -12,6 +12,7 @@ import struct
 import sys
 import termios
 import time
+
 # Constants
 from pty import CHILD, STDIN_FILENO
 
@@ -127,10 +128,6 @@ class PtyProcess(object):
 
     The main constructor is the :meth:`spawn` classmethod.
     """
-
-    string_type = bytes
-    linesep = os.linesep.encode("ascii")
-    crlf = "\r\n".encode("ascii")
 
     @staticmethod
     def write_to_stdout(b):
@@ -826,8 +823,6 @@ class PtyProcessUnicode(PtyProcess):
     This class exposes a similar interface to :class:`PtyProcess`, but its read
     methods return unicode, and its :meth:`write` accepts unicode.
     """
-
-    string_type = str
 
     def __init__(self, pid, fd, encoding="utf-8", codec_errors="strict"):
         super(PtyProcessUnicode, self).__init__(pid, fd)
