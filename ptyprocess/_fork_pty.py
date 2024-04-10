@@ -4,7 +4,7 @@ import errno
 import os
 from pty import CHILD, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO
 
-from .util import PtyProcessError
+from ptyprocess import PtyProcessError
 
 
 def fork_pty():

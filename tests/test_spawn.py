@@ -1,12 +1,12 @@
 import fcntl
 import os
 import select
+import shutil
 import tempfile
 import time
 import unittest
 
 from ptyprocess import PtyProcess, PtyProcessUnicode
-from ptyprocess.ptyprocess import which
 
 
 class PtyTestCase(unittest.TestCase):
@@ -107,11 +107,11 @@ class PtyTestCase(unittest.TestCase):
         # validate exit status,
         assert bc.wait() == 0
 
-    @unittest.skipIf(which("bc") is None, "bc(1) not found on this server.")
+    @unittest.skipIf(shutil.which("bc") is None, "bc(1) not found on this server.")
     def test_interactive_repl_unicode_noecho(self):
         self._interactive_repl_unicode(echo=False)
 
-    @unittest.skipIf(which("bc") is None, "bc(1) not found on this server.")
+    @unittest.skipIf(shutil.which("bc") is None, "bc(1) not found on this server.")
     def test_interactive_repl_unicode_echo(self):
         self._interactive_repl_unicode(echo=True)
 

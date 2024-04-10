@@ -5,6 +5,7 @@ import io
 import os
 import pty
 import resource
+import shutil
 import signal
 import struct
 import sys
@@ -19,7 +20,10 @@ except ImportError:
 # Constants
 from pty import CHILD, STDIN_FILENO
 
-from .util import PtyProcessError, which
+
+class PtyProcessError(Exception):
+    """Generic error class for this package."""
+
 
 _platform = sys.platform.lower()
 
@@ -229,7 +233,7 @@ class PtyProcess(object):
         argv = argv[:]
         command = argv[0]
 
-        command_with_path = which(command)
+        command_with_path = shutil.which(command)
         if command_with_path is None:
             raise FileNotFoundError(
                 "The command was not found or was not " + "executable: %s." % command
